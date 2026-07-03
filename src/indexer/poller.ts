@@ -5,6 +5,12 @@ import { Db } from "./db";
 // XDR base64 for Symbol("swap") — the first static topic emitted by #[contractevent(topics = ["swap"])]
 const SWAP_TOPIC_XDR = xdr.ScVal.scvSymbol("swap").toXDR("base64");
 
+// XDR base64 for Symbol("schedule_created") — the first static topic emitted by
+// the contract's ScheduleCreated event (tracked in dca-vault-contract issue #3).
+const SCHEDULE_CREATED_TOPIC_XDR = xdr.ScVal
+  .scvSymbol("schedule_created")
+  .toXDR("base64");
+
 interface ParsedSwapEvent {
   owner: string;
   amount_in: number;
@@ -47,6 +53,25 @@ function parseSwapEvent(
   }
 }
 
+// Extracts the vault owner from a ScheduleCreated event. topic[0] is the static
+// "schedule_created" symbol; topic[1] is the owner Address (#[topic] field).
+// Returns null for any event that is not a ScheduleCreated event.
+function parseScheduleCreatedOwner(
+  event: rpc.Api.EventResponse
+): string | null {
+  try {
+    if (event.topic.length < 2) return null;
+
+    const topic0 = event.topic[0].toXDR("base64");
+    if (topic0 !== SCHEDULE_CREATED_TOPIC_XDR) return null;
+
+    return scValToNative(event.topic[1]) as string;
+  } catch (err) {
+    console.error("[poller] failed to parse ScheduleCreated event:", err);
+    return null;
+  }
+}
+
 export async function startPoller(config: Config, db: Db): Promise<void> {
   const server = new rpc.Server(config.rpcUrl, { allowHttp: false });
 
@@ -72,21 +97,37 @@ export async function startPoller(config: Config, db: Db): Promise<void> {
             // topic[0] must be Symbol("swap")
             topics: [[SWAP_TOPIC_XDR]],
           },
+          {
+            type: "contract",
+            contractIds: [config.contractId],
+            // topic[0] must be Symbol("schedule_created")
+            topics: [[SCHEDULE_CREATED_TOPIC_XDR]],
+          },
         ],
         limit: 200,
       });
 
       let inserted = 0;
+      let ownersDiscovered = 0;
       for (const event of response.events) {
-        const parsed = parseSwapEvent(event);
-        if (!parsed) continue;
-        db.insertSwapEvent(parsed);
-        inserted++;
+        const swap = parseSwapEvent(event);
+        if (swap) {
+          db.insertSwapEvent(swap);
+          inserted++;
+          continue;
+        }
+
+        const newOwner = parseScheduleCreatedOwner(event);
+        if (newOwner) {
+          db.insertVaultOwner(newOwner);
+          ownersDiscovered++;
+          console.log(`[poller] discovered new vault owner: ${newOwner}`);
+        }
       }
 
-      if (inserted > 0) {
+      if (inserted > 0 || ownersDiscovered > 0) {
         console.log(
-          `[poller] ledgers ${startLedger}–${latestLedger}: inserted ${inserted} swap event(s)`
+          `[poller] ledgers ${startLedger}–${latestLedger}: inserted ${inserted} swap event(s), ${ownersDiscovered} new vault owner(s)`
         );
       }
 

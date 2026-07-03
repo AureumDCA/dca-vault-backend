@@ -15,6 +15,7 @@ export interface SwapEvent {
 
 export interface Db {
   insertSwapEvent(event: SwapEvent): void;
+  insertVaultOwner(owner: string): void;
   getSwapEvents(owner: string): SwapEvent[];
   getAllOwners(): string[];
   getLastLedger(): number;
@@ -48,6 +49,11 @@ export function initDb(dbPath: string): Db {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS vault_owners (
+      owner TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   const insert = db.prepare<SwapEvent>(`
@@ -61,8 +67,18 @@ export function initDb(dbPath: string): Db {
     SELECT * FROM swap_events WHERE owner = ? ORDER BY ledger_sequence ASC
   `);
 
+  const insertOwner = db.prepare<[string]>(
+    `INSERT OR IGNORE INTO vault_owners (owner) VALUES (?)`
+  );
+
+  // Owners come from two sources: vaults that have emitted a ScheduleCreated
+  // event (indexed into vault_owners) and vaults with at least one prior swap
+  // (swap_events). Union both so brand-new vaults are visible before their
+  // first swap.
   const selectAllOwners = db.prepare(
-    `SELECT DISTINCT owner FROM swap_events`
+    `SELECT owner FROM vault_owners
+     UNION
+     SELECT DISTINCT owner FROM swap_events`
   );
 
   const getState = db.prepare<[string]>(
@@ -75,6 +91,10 @@ export function initDb(dbPath: string): Db {
   return {
     insertSwapEvent(event: SwapEvent): void {
       insert.run(event);
+    },
+
+    insertVaultOwner(owner: string): void {
+      insertOwner.run(owner);
     },
 
     getSwapEvents(owner: string): SwapEvent[] {

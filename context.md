@@ -4,6 +4,36 @@ This file tracks every edit, decision, and development session for the `dca-vaul
 
 ## Session log
 
+### Session 2 — 2026-07-03
+
+**Fix the vault-discovery gap: index `ScheduleCreated` events.**
+
+Problem: the executor discovered vault owners only via `getAllOwners()`, which
+read `SELECT DISTINCT owner FROM swap_events`. That means a vault was invisible
+to the executor until *after* its first swap landed — a brand-new, funded vault
+would never get its first scheduled swap triggered. Chicken-and-egg.
+
+Fix (indexer + db side, ready to consume the contract event once it ships):
+
+- **`src/indexer/db.ts`**: added a `vault_owners` table (`owner` PRIMARY KEY,
+  `created_at`). New `insertVaultOwner(owner)` on the `Db` interface uses
+  `INSERT OR IGNORE`, so re-indexing the same event is a no-op. `getAllOwners()`
+  now returns the `UNION` of `vault_owners` and `SELECT DISTINCT owner FROM
+  swap_events`, so owners from either source (a created-but-never-swapped vault,
+  or a vault known only from historical swaps) are all returned.
+- **`src/indexer/poller.ts`**: added `SCHEDULE_CREATED_TOPIC_XDR`
+  (`Symbol("schedule_created")`, computed the same way as `SWAP_TOPIC_XDR`) and
+  a second `getEvents` filter for it alongside the existing swap filter. In the
+  event loop, each event is tried as a swap first; if it isn't one, it's tried
+  as a `ScheduleCreated` event via `parseScheduleCreatedOwner` (owner from
+  `topic[1]`), and on match we `db.insertVaultOwner(owner)` and log the
+  discovery. Poll summary line now reports both counts.
+
+Depends on the contract emitting `ScheduleCreated` — tracked as
+dca-vault-contract issue #3. Until that ships, this filter simply matches
+nothing; no behavior change to the swap path. `npx tsc --noEmit` and
+`npm run build` both pass with zero errors.
+
 ### Session 1 — 2026-07-01
 
 **Initial scaffold: config, SQLite indexer, event poller, executor, REST API.**
