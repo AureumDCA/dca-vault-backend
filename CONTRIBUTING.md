@@ -1,6 +1,6 @@
 # Contributing to dca-vault-backend
 
-Welcome! This repo is the off-chain backbone of StellarDCA: a schedule executor, a Soroban event indexer, and a REST portfolio API — all written in Node.js/TypeScript. It's part of the **Stellar Drips Wave contributor program**, which rewards merged contributions with on-chain Drips payments. Maintainers assign complexity/points labels after review.
+Welcome! This repo is the off-chain backbone of AureumDCA: a schedule executor, a Soroban event indexer, and a REST portfolio API — all written in Node.js/TypeScript. It's part of the **Stellar Drips Wave contributor program**, which rewards merged contributions with on-chain Drips payments. Maintainers assign complexity/points labels after review.
 
 ## Prerequisites
 
@@ -13,7 +13,7 @@ Welcome! This repo is the off-chain backbone of StellarDCA: a schedule executor,
 ## Getting started
 
 ```sh
-git clone https://github.com/StellarDCA/dca-vault-backend.git
+git clone https://github.com/AureumDCA/dca-vault-backend.git
 cd dca-vault-backend
 npm ci
 cp .env.example .env

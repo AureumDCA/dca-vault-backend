@@ -1,6 +1,6 @@
 # DCA Vault Backend
 
-The off-chain backend for [StellarDCA](https://github.com/StellarDCA): a **schedule executor**, a **Soroban event indexer**, and a **REST portfolio API** — all written in Node.js/TypeScript. It watches the deployed `dca-vault-contract` on Stellar testnet, triggers due swaps permissionlessly, indexes swap history into SQLite, and exposes that history via HTTP.
+The off-chain backend for [AureumDCA](https://github.com/AureumDCA): a **schedule executor**, a **Soroban event indexer**, and a **REST portfolio API** — all written in Node.js/TypeScript. It watches the deployed `dca-vault-contract` on Stellar testnet, triggers due swaps permissionlessly, indexes swap history into SQLite, and exposes that history via HTTP.
 
 ## Architecture
 
@@ -55,7 +55,7 @@ The off-chain backend for [StellarDCA](https://github.com/StellarDCA): a **sched
 ## Setup
 
 ```sh
-git clone https://github.com/StellarDCA/dca-vault-backend.git
+git clone https://github.com/AureumDCA/dca-vault-backend.git
 cd dca-vault-backend
 npm ci
 cp .env.example .env
