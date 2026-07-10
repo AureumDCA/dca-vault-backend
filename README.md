@@ -1,6 +1,22 @@
 # DCA Vault Backend
 
+[![CI](https://github.com/AureumDCA/dca-vault-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/AureumDCA/dca-vault-backend/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 The off-chain backend for [AureumDCA](https://github.com/AureumDCA): a **schedule executor**, a **Soroban event indexer**, and a **REST portfolio API** — all written in Node.js/TypeScript. It watches the deployed `dca-vault-contract` on Stellar testnet, triggers due swaps permissionlessly, indexes swap history into SQLite, and exposes that history via HTTP.
+
+## Live Deployment
+
+The backend is deployed and running at:
+**[https://dca-vault-backend.onrender.com](https://dca-vault-backend.onrender.com)**
+
+> **Note:** This runs on Render's free tier, which spins down after
+> periods of inactivity. The first request after idle time may take
+> up to 50 seconds to respond while the service wakes up. Subsequent
+> requests will be fast.
+
+Example: `GET https://dca-vault-backend.onrender.com/health` should
+return `{ "status": "ok" }`.
 
 ## Architecture
 

@@ -4,6 +4,18 @@ This file tracks every edit, decision, and development session for the `dca-vaul
 
 ## Session log
 
+### Session 3 — 2026-07-10
+
+**README: CI/License badges + Live Deployment section.** Added `CI` and
+`License: MIT` shields.io badges directly under the H1 title. Added a new
+"Live Deployment" section (after the intro paragraph, before Architecture)
+pointing at the Render deployment: `https://dca-vault-backend.onrender.com`,
+with a note about free-tier cold-start latency. Verified the URL is real
+before writing the claim — `curl .../health` returned `200` with
+`{"status":"ok",...}` (took ~26s, consistent with a cold start). Additive
+only, no rewording of existing sections. `npx tsc --noEmit` and `npm run
+build` both still pass clean after the README-only change.
+
 ### Session 2 — 2026-07-03
 
 **Fix the vault-discovery gap: index `ScheduleCreated` events.**
