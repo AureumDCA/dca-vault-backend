@@ -4,6 +4,24 @@ This file tracks every edit, decision, and development session for the `dca-vaul
 
 ## Session log
 
+### Session 4 — 2026-07-12
+
+**CI: bump GitHub Actions to latest stable.** Verified via `gh api
+repos/<owner>/<repo>/releases` before changing anything (no guessing):
+
+- **`actions/checkout`**: `v4` → `v7` (v7.0.0, published 2026-06-18, genuine
+  stable release, not a prerelease).
+- **`actions/setup-node`**: `v4` → `v6` (v6.4.0, published 2026-04-20;
+  floating major tags v4/v5/v6 all exist, v6 is current).
+
+Left `node-version: 20` untouched — that's the Node.js runtime pinned inside
+`setup-node`'s `with:` block, not a GitHub Action version, so out of scope
+for this bump.
+
+`npx tsc --noEmit` and `npm run build` both pass with zero errors (confirms
+the repo itself is healthy; doesn't exercise the workflow YAML — that's
+verified by the actual CI run after push).
+
 ### Session 3 — 2026-07-10
 
 **README: CI/License badges + Live Deployment section.** Added `CI` and
