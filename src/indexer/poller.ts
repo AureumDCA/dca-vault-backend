@@ -95,13 +95,19 @@ export async function startPoller(config: Config, db: Db): Promise<void> {
             type: "contract",
             contractIds: [config.contractId],
             // topic[0] must be Symbol("swap")
-            topics: [[SWAP_TOPIC_XDR]],
+            // Soroban's getEvents matches topic filters by exact segment
+            // count; this event carries a second topic (owner address), so
+            // the filter needs an explicit wildcard for it or it matches
+            // nothing.
+            topics: [[SWAP_TOPIC_XDR, "*"]],
           },
           {
             type: "contract",
             contractIds: [config.contractId],
             // topic[0] must be Symbol("schedule_created")
-            topics: [[SCHEDULE_CREATED_TOPIC_XDR]],
+            // Same fix: this event also carries a second topic (owner
+            // address) that must be wildcarded, not omitted.
+            topics: [[SCHEDULE_CREATED_TOPIC_XDR, "*"]],
           },
         ],
         limit: 200,

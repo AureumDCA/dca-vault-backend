@@ -4,6 +4,52 @@ This file tracks every edit, decision, and development session for the `dca-vaul
 
 ## Session log
 
+### Session 7 — 2026-07-23
+
+**Fix: poller's event topic filters silently matched zero events, ever.**
+
+Diagnosed in a prior session, after the real `execute_swap` from Session 13
+of `dca-vault-contract` didn't show up in `GET /vaults/:owner/history`.
+Root cause, confirmed empirically against the real deployed contract and
+the real transaction: Soroban's `getEvents` topic filter matches by *exact
+segment count* — a filter must supply one entry per topic segment the event
+actually carries, using `"*"` as an explicit wildcard for segments you don't
+want to constrain. It does not loosely prefix-match a shorter filter against
+a longer topic list.
+
+Both of this contract's indexed events carry **two** topics — a static
+symbol (`"swap"` or `"schedule_created"`) plus the owner `Address` (a
+`#[topic]` field) — but `poller.ts`'s filters specified only the first
+segment (`topics: [[SWAP_TOPIC_XDR]]`, `topics: [[SCHEDULE_CREATED_TOPIC_XDR]]`).
+Since the segment count didn't match, `getEvents` returned zero results for
+every poll, silently — no exception, no log line, nothing to indicate a
+problem. This is a **different bug** from the `XdrReaderError: unknown
+SorobanCredentialsType member for value 2` flagged in Session 5 (that error
+never reoccurred in this session's runs and remains a separate, unconfirmed
+issue). This one is deterministic: it has prevented **every** `swap` event
+and **every** `schedule_created` event from being indexed since the poller
+was first written, not just today's swap.
+
+Fix: added a wildcard second segment to both filters:
+```ts
+topics: [[SWAP_TOPIC_XDR, "*"]]
+topics: [[SCHEDULE_CREATED_TOPIC_XDR, "*"]]
+```
+
+**Verified against the real on-chain swap** from earlier today
+(`execute_swap` tx `b4b43afd24e080b2cba7e5492ac4d096f9787a8aab4ea01b62849b0451b7c556`,
+ledger `3757613`): reset the local `indexer_state.last_ledger_sequence` to
+`3757600` to force a re-scan back through that ledger, rebuilt, and ran the
+backend locally. First poll tick logged:
+```
+[poller] ledgers 3757601–3758437: inserted 1 swap event(s), 0 new vault owner(s)
+```
+`GET /vaults/GD6KZDL3Q.../history` then correctly returned the real event —
+matching tx hash, `ledger_sequence: 3757613`, `amount_in`/`amount_out`:
+`500000000` each, `pool_address` matching the demo pool — instead of `[]`.
+
+`npx tsc --noEmit` and `npm run build` both pass with zero errors.
+
 ### Session 6 — 2026-07-23
 
 **Fix: CORS blocked all cross-origin requests from the deployed frontend.**
