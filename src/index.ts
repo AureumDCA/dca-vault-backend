@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import { loadConfig } from "./config";
 import { initDb } from "./indexer/db";
 import { startPoller } from "./indexer/poller";
@@ -9,6 +10,7 @@ const config = loadConfig();
 const db = initDb(config.dbPath);
 
 const app = express();
+app.use(cors({ origin: config.allowedOrigin }));
 app.use(express.json());
 app.use("/", buildRouter(config, db));
 

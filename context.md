@@ -4,6 +4,47 @@ This file tracks every edit, decision, and development session for the `dca-vaul
 
 ## Session log
 
+### Session 6 — 2026-07-23
+
+**Fix: CORS blocked all cross-origin requests from the deployed frontend.**
+Discovered via browser DevTools: `https://dca-vault-frontend.vercel.app`'s
+JS calls to `https://dca-vault-backend.onrender.com` were rejected by the
+browser's CORS check — the backend had no CORS middleware at all, so it
+never sent an `Access-Control-Allow-Origin` header. Requests worked fine
+when hit directly (curl, browser address bar), which is what made this a
+pure CORS issue rather than a routing/logic bug — the endpoints themselves
+were already fine.
+
+Fix: added the `cors` package, applied as `app.use(cors({ origin:
+config.allowedOrigin }))` in `src/index.ts`, before the router mount.
+`config.allowedOrigin` is a new `Config` field (`src/config.ts`), read via
+`optional_env("ALLOWED_ORIGIN", "http://localhost:3000")` — same pattern as
+the other optional env vars. Chose an explicit configured origin over `*`:
+this API's callers are known in advance (one deployed frontend, plus local
+dev), and a wildcard would let *any* site's JS read vault data for *any*
+address by simply asking a visitor's browser to fetch it — an explicit
+allowlist costs nothing here and closes that off. Documented the new var in
+`.env.example` and set it locally in `.env` to
+`https://dca-vault-frontend.vercel.app`.
+
+Verified locally with curl (simulating browser `Origin` headers):
+- `Origin: https://dca-vault-frontend.vercel.app` → `200` with
+  `Access-Control-Allow-Origin: https://dca-vault-frontend.vercel.app` present.
+- `Origin: https://evil-example.com` → same hardcoded
+  `Access-Control-Allow-Origin: https://dca-vault-frontend.vercel.app` header
+  (the `cors` middleware doesn't reflect arbitrary request origins back for a
+  static string config) — it does not match `evil-example.com`, which is
+  exactly what makes a real browser reject the response for that origin's JS
+  (curl itself doesn't enforce CORS, so the body still comes through either
+  way; the protection is browser-side, keyed off this mismatch).
+
+`npx tsc --noEmit` and `npm run build` both pass with zero errors.
+
+**Still needed: `ALLOWED_ORIGIN` must be added to Render's dashboard env vars
+for this service, then redeployed** — this repo has no Render config file,
+so that variable only exists in this machine's local `.env` right now; the
+deployed instance won't have it until it's added manually there.
+
 ### Session 5 — 2026-07-22
 
 **Fix: `GET /vaults/:owner` crashed with 500 for any account that has a real

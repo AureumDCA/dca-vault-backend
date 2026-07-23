@@ -16,12 +16,14 @@
   "dependencies": {
     "@stellar/stellar-sdk": "^15.1.0",
     "better-sqlite3": "^12.11.1",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "node-cron": "^4.5.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^26.1.0",
     "@types/node-cron": "^3.0.11",

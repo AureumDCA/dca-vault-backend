@@ -21,6 +21,7 @@ export interface Config {
   pollIntervalMs: number;
   port: number;
   dbPath: string;
+  allowedOrigin: string;
 }
 
 export function loadConfig(): Config {
@@ -32,5 +33,6 @@ export function loadConfig(): Config {
     pollIntervalMs: parseInt(optional_env("POLL_INTERVAL_MS", "30000"), 10),
     port: parseInt(optional_env("PORT", "3001"), 10),
     dbPath: optional_env("DB_PATH", "./data/dca.db"),
+    allowedOrigin: optional_env("ALLOWED_ORIGIN", "http://localhost:3000"),
   };
 }
