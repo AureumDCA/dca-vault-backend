@@ -15,6 +15,22 @@ function makeServer(config: Config): rpc.Server {
   return new rpc.Server(config.rpcUrl, { allowHttp: false });
 }
 
+// scValToNative returns i128/u128 contract fields as native BigInt, which
+// JSON.stringify (used internally by res.json) cannot serialize.
+function serializeBigInts(value: unknown): unknown {
+  if (typeof value === "bigint") return value.toString();
+  if (Array.isArray(value)) return value.map(serializeBigInts);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [
+        k,
+        serializeBigInts(v),
+      ])
+    );
+  }
+  return value;
+}
+
 export function healthHandler(_req: Request, res: Response): void {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 }
@@ -64,7 +80,7 @@ export function makeVaultHandler(config: Config) {
       }
 
       const vault = scValToNative(retval);
-      res.json(vault);
+      res.json(serializeBigInts(vault));
     } catch (err) {
       console.error("[api] GET /vaults/:owner error:", err);
       res.status(500).json({ error: "internal server error" });

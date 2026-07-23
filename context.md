@@ -4,6 +4,39 @@ This file tracks every edit, decision, and development session for the `dca-vaul
 
 ## Session log
 
+### Session 5 — 2026-07-22
+
+**Fix: `GET /vaults/:owner` crashed with 500 for any account that has a real
+vault.** Diagnosed in a prior session: `scValToNative()` converts the
+contract's `i128` fields (`balance`, `amount_per_execution`) into native JS
+`BigInt`, and `res.json()` (i.e. `JSON.stringify`) cannot serialize `BigInt`,
+throwing `TypeError: Do not know how to serialize a BigInt` — caught by the
+handler's outer `catch` and surfaced as a generic `500 {"error":"internal
+server error"}`. This meant the endpoint only ever worked for accounts with
+*no* vault (which correctly return 404 before reaching `scValToNative`);
+every account with a real vault got a 500 instead of vault data.
+
+Fix: added a `serializeBigInts()` helper in `src/api/handlers.ts` that
+recursively converts `BigInt` values to strings, and wrapped `vaultHandler`'s
+`res.json(vault)` call with it. Checked the other handlers in the same file
+(`historyHandler`, `performanceHandler`) — both read `SwapEvent` rows from
+SQLite where `amount_in`/`amount_out` are already stored/typed as `number`,
+not `BigInt`, so they were unaffected and left untouched.
+
+Verified locally against both addresses from the diagnosis session:
+- `GD6KZDL3Q7DO...` (real vault) → now `200` with `balance`/
+  `amount_per_execution` serialized as strings, e.g.
+  `{"balance":"2000000000",...,"schedule":{"amount_per_execution":"500000000",...}}`.
+- `GA2BQ4XURK...` (no vault) → unchanged, still `404 {"error":"vault not
+  found or simulation failed"}`.
+
+`npx tsc --noEmit` and `npm run build` both pass with zero errors.
+
+Unrelated, out of scope: the background poller logged `[poller] poll error:
+XdrReaderError ... unknown SorobanCredentialsType member for value 2` during
+local verification — a separate, pre-existing issue in the indexer's XDR
+parsing, not touched here.
+
 ### Session 4 — 2026-07-12
 
 **CI: bump GitHub Actions to latest stable.** Verified via `gh api
