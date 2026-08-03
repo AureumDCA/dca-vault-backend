@@ -27,7 +27,7 @@ The server starts on the port set in `.env` (`PORT`, default 3001). You should s
 
 | Variable | Description | Example |
 | --- | --- | --- |
-| `CONTRACT_ID` | Deployed dca-vault-contract address on Stellar testnet | `CDJF7V5NLGKAV7RHTBCR3LMHC7MUS7IWL6KYSLO6ZWEEJYJGWUVGEDEO` |
+| `CONTRACT_ID` | Deployed dca-vault-contract address on Stellar testnet | `CDUJQQ742DH36VLLUQ4PGIQFVIV6OU4EX7HYK5STV5VUUQJIFK7BLQYC` |
 | `NETWORK_PASSPHRASE` | Stellar network identifier | `Test SDF Network ; September 2015` |
 | `RPC_URL` | Soroban RPC endpoint | `https://soroban-testnet.stellar.org` |
 | `EXECUTOR_SECRET` | Secret key of the account that submits `execute_swap` transactions | `S...` (fund with friendbot) |
