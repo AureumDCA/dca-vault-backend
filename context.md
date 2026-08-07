@@ -4,6 +4,85 @@ This file tracks every edit, decision, and development session for the `dca-vaul
 
 ## Session log
 
+### Session 8 — 2026-08-07
+
+**Milestone: the executor autonomously executed a swap for the first time —
+and the investigation revealed it had never executed one before.**
+
+**The discovery.** While preparing evidence for a Drips Wave appeal, the
+question came up of whether the executor had ever actually fired. Reading
+`executor.ts` against `db.ts` showed it structurally could not have:
+`tick()` calls `db.getAllOwners()`, which unions `vault_owners` and
+`swap_events`. Both tables are written *only* by the poller. Because of the
+topic-filter bug fixed in Session 7, the poller had never inserted a row into
+either table. So `getAllOwners()` always returned `[]` and `tick()` returned
+on its first line:
+
+```ts
+const owners = getKnownOwners();
+if (owners.length === 0) return;
+```
+
+That return fires *before any logging*, which is why this was invisible for
+the project's entire life — no error, no warning, not even a "0 owners" line.
+The executor started cleanly and no-oped every 30 seconds since it was
+written. The one `execute_swap` that had ever occurred was CLI-triggered by
+hand, not by the executor. The stale `TODO` above `getKnownOwners` was also
+wrong twice over: the `vault_owners` union already addressed what it
+described, and the real blocker was the filter bug underneath it.
+
+Worth recording that this was only found by chasing why `/history` was empty.
+Nothing in the logs would ever have surfaced it.
+
+**The run.** Local DB reset to a clean state on the current contract
+(`CDUJQQ742DH36VLLUQ4PGIQFVIV6OU4EX7HYK5STV5VUUQJIFK7BLQYC`), backend started
+locally, then deposit (100 XLM, tx `89b93056…`) and `create_schedule` (Daily,
+10 XLM/execution, tx `47ef36b9…`) via CLI. Within one poll cycle the poller
+logged `[poller] discovered new vault owner: GD6KZDL3Q7DO…` — a line that had
+never appeared before — and `vault_owners` had its first ever row.
+
+**The crash.** The process died roughly four hours into the 24-hour wait; the
+poller cursor froze at ledger `3985523`. Nothing was running when the schedule
+came due at ledger `3999952`, so it sat overdue for ~21 hours.
+
+**The execution.** On restart the executor found the owner still in the local
+SQLite `vault_owners` table, correctly identified the schedule as overdue, and
+fired within a single 30-second tick:
+
+```
+[executor] triggering execute_swap for GD6KZDL3Q7DO… (due at 3999952, current 4015646)
+[executor] execute_swap confirmed for GD6KZDL3Q7DO… (1635abc0…)
+[poller] ledgers 4015647–4015652: inserted 1 swap event(s), 0 new vault owner(s)
+```
+
+Tx `1635abc061c324c660a72d7e1aecda88d0d6bc41dfdb37be260f6db058b2bb03`, signed
+and submitted by the executor account
+`GCNMZYNV3NVFLK25K3KLZ2LM6HAAD4BVYHULQX746XERD6HQRGGJ6SLD` with no human
+involvement in the swap itself. State transitions verified correct: balance
+`1000000000 → 900000000`, `last_execution_ledger → 4015648`,
+`next_execution_ledger → 4032928` (+17,280 = one `LEDGERS_PER_DAY`). The
+poller then indexed the resulting event and `/history` returned it.
+
+**Stated precisely:** autonomous execution is proven — the executor reads its
+own owner list, queries vault state, decides a schedule is due, and signs and
+submits unprompted. **Punctual firing is not proven**, because no process was
+alive at the due moment to attempt it. That distinction is recorded
+deliberately rather than glossed.
+
+**The gap this surfaced.** The run only produced a usable result because the
+local SQLite file sits on a persistent disk. On Render's ephemeral free tier
+the same crash-restart would have destroyed `data/dca.db`, resetting
+`vault_owners` and `indexer_state`; the poller would cold-start at
+`latestLedger - 100` (~8 minutes), far too late to re-index a
+`schedule_created` event tens of thousands of ledgers old; `getAllOwners()`
+would return `[]` and the executor would no-op forever, silently. Since the
+free tier spins down on inactivity, restarts are routine. The deployed backend
+is therefore not currently capable of reliable unattended operation, even
+though the executor logic itself is now proven correct. Filed as issue #4,
+"Executor and poller state does not survive process restarts on ephemeral
+hosting." A wider cold-start rescan is explicitly *not* a sufficient fix on its
+own — Soroban RPC event retention is finite and would need measuring first.
+
 ### Session 7 — 2026-07-23
 
 **Fix: poller's event topic filters silently matched zero events, ever.**
